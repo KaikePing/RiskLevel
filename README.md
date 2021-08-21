@@ -1,29 +1,43 @@
-# RiskLevel
-![Platform](https://img.shields.io/badge/Platform-Windows-green)
+# Risk Region
 
-Update and compare the change of risk level of regions on COVID-19 in China.  
-自动更新新冠中高风险地区数据，并记录其每日变化。
+Program based on [RiskLevel](https://github.com/KaikePing/RiskLevel), use mongoDB to store risk region information from offical website, and send notice email to specific addresss.
 
-## Feature
+`passwd.py` is the config file contain mail sending account and receiving address:
 
-- To download risk level data from the [National Health Commission](http://bmfw.www.gov.cn/yqfxdjcx/risk.html) website and save them as *.js* files.
-- 从[卫生健康委](http://bmfw.www.gov.cn/yqfxdjcx/risk.html)网站自动下载疫情风险等级数据，并保存为 *.js* 文件
-- Comparing the newest data with a nearest former one in the *Archive* folder and output the differences with markers `removed` and `new` as regions being lowered or added.
-- 自动比较最新的数据和 *Archive* 文件夹里上一份数据的不同，并标记 `removed` 或 `new` 以表示调低或新增的地区
+```python
+# sending config
+account = 'sending@email.com'
+passwd = 'PASSWORD'
 
-## Usage
+# receiver info
+receiver = 'receiving@email.com'
+```
 
-Run *risklevel.py* directly, and an outcome as a *.csv* file will be stored in the *Archive* folder.
+Email are sending using [zmail](https://github.com/zhangyunhao116/zmail) moudule, so stmp server are parsed automaticly, only mail account and password are needed.
 
-直接运行 *risklevel.py* ，结果文件会以 *.csv* 格式直接保存在 *Archive* 文件夹里。
+# REQUIREMENT
 
-## About the *token* and *key* in the code
+- mongoDB
+- python3
+    + pymongo
+    + schedule
+    + zmail
+    + pandas
+    + requests
 
-When making the request to acquire the data, you may notice there are some appeared privated auth-keys like `token` or `key` in the code. Those are just clear texts in the JavaScript code of that websit. Feel free to use.
+Please notice that `zmail` is only available through pip
 
-在运行程序向网站提交请求时，你会发现代码里有一些看起来像是 `token` 或者 `key` 的秘钥。这些其实都是原网站 JavaScript 代码里的明文。直接使用即可。
+# HOW TO USE
 
-## ToDo
+1. Clone this project
+2. Install the requirements
+3. Create `passwd.py`, and config the sending account and reciving account
+4. Start mongoDB
+5. Start `risk_region.py`
 
-Compatible with Linux.
+# TODO
 
+- [ ] A CUI to config mail infomation and start the service
+- [ ] Automatic database init process, this should to be done using `insert.py` manually now
+- [ ] Simple plotly app to display the risk region trend or something
+- [ ] A more decent `config.py`
