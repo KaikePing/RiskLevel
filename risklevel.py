@@ -4,6 +4,7 @@ import os, json, time, requests, hashlib
 from datetime import datetime
 import pandas as pd 
 import pymongo, schedule, zmail
+import traceback
 
 from config import PATHS, URL, MONGO_CLIENT, MONGO_DB, MONGO_FILE
 from passwd import passwd, account, receiver
@@ -67,15 +68,15 @@ def comparsion(latest, former):
     return a dataframe 
     '''
     # High-risk
-    risk1 = latest['highlist']
-    risk2 = former['highlist']
+    risk1 = former['highlist']
+    risk2 = latest['highlist']
     # Removing duplications
     shift1 = dup(risk1, risk2)
     shift1['level'] = "high"
     
     # Mid-risk
-    risk1 = latest['middlelist']
-    risk2 = former['middlelist']
+    risk1 = former['middlelist']
+    risk2 = latest['middlelist']
     # Removing duplications
     shift2 = dup(risk1, risk2)
     shift2['level'] = "middle"
@@ -118,7 +119,22 @@ def send_mail(account, passwd, chgData, aInfo=None):
     server = zmail.server(account, passwd)
     #发送给哪个邮件
     server.send_mail(receiver, mail_content)
-    print(f'Mail sended to {receiver}')
+    print(f'Mail sent to {receiver}')
+
+
+def send_err(account, passwd, info):
+    '''
+    use zmail to send error email
+    '''
+    mail_content = {
+        'subject': '[Auto-Mail] Risk region service ERROR',
+        'content_text': f'Risk region service run into error: {info}',
+    }
+    #使用哪个邮箱发送邮件
+    server = zmail.server(account, passwd)
+    #发送给哪个邮件
+    server.send_mail(receiver, mail_content)
+    print(f'Error notice mail sent to {receiver}')
 
 
 def update(riskData=None):
@@ -127,29 +143,34 @@ def update(riskData=None):
     if end_update_time existed, mean saved data, discard
     else get the former record, find difference and save the latest information to mongoDB
     '''
-    latest = riskData if riskData else loading_new()
-    latest_time = latest['end_update_time']
     myclient = pymongo.MongoClient(MONGO_CLIENT)
-    mydb = myclient[MONGO_DB]
-    mycol = mydb[MONGO_FILE]
-    found = list(mycol.find({'end_update_time': latest_time}))
-    
-    if len(found) > 0: # old
-        print(f'Updating at {datetime.now().strftime("%c")}')
-    else: # new
-        former = list(mycol.find().sort([['_id', -1]]).limit(1))[0]
-        chgData = comparsion(latest, former)
-        send_mail(account, passwd, chgData, aInfo=latest)
-        mycol.insert_one(latest)
-    myclient.close()
+    try:
+        latest = riskData if riskData else loading_new()
+        latest_time = latest['end_update_time']
+        mydb = myclient[MONGO_DB]
+        mycol = mydb[MONGO_FILE]
+        found = list(mycol.find({'end_update_time': latest_time}))
+        
+        if len(found) > 0: # old
+            print(f'Updating at {datetime.now().strftime("%c")}')
+        else: # new
+            former = list(mycol.find().sort([['_id', -1]]).limit(1))[0]
+            chgData = comparsion(latest, former)
+            send_mail(account, passwd, chgData, aInfo=latest)
+            mycol.insert_one(latest)
+    except Exception as e: # 错误信息作为邮件发送，同时也打印出来
+        traceback.print_exc()
+        send_err(account, passwd, traceback.format_exc())
+    finally:
+        myclient.close()
 
 
 if __name__ == "__main__":
-    # schedule.every(10).minutes.do(update)
-    # while True:
-    #     schedule.run_pending()
-    #     time.sleep(10)
+    schedule.every(10).minutes.do(update)
+    while True:
+        schedule.run_pending()
+        time.sleep(10)
 
-    update()
-    # loading_new()
-    # comparsion()
+    # update()
+    # # loading_new()
+    # # comparsion()
