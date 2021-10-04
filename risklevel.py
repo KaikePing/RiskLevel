@@ -50,8 +50,19 @@ def dup(risk1, risk2):
     '''
     Removing duplications
     '''
-    df1 = pd.DataFrame(risk1).explode('communitys').drop_duplicates()
-    df2 = pd.DataFrame(risk2).explode('communitys').drop_duplicates()
+    # Check if there is any empty area
+    if len(risk1)==0:
+        shift = pd.DataFrame(risk2).explode('communitys').drop_duplicates()
+        shift['_merge'] = 'right_only'
+        return(shift)
+    elif len(risk2)==0:
+        shift = pd.DataFrame(risk1).explode('communitys').drop_duplicates()
+        shift['_merge'] = 'left_only'
+        return(shift)
+    else:     
+        df1 = pd.DataFrame(risk1).explode('communitys').drop_duplicates()
+        df2 = pd.DataFrame(risk2).explode('communitys').drop_duplicates()
+    
     # Compare df1-the previous one with df2-the newer one
     df = df1.merge(df2, indicator=True, how='outer')
     # left_only might be item that has been removed
@@ -68,25 +79,40 @@ def comparsion(latest, former):
     return a dataframe 
     '''
     # High-risk
-    risk1 = former['highlist']
-    risk2 = latest['highlist']
+    risk1 = json1['data']['highlist']
+    risk2 = json2['data']['highlist']
     # Removing duplications
-    shift1 = dup(risk1, risk2)
-    shift1['level'] = "high"
+    if len(risk1)==len(risk2)==0:
+        high_flag = 0
+    else:
+        shift1 = dup(risk1, risk2)
+        shift1['level'] = "high"
     
     # Mid-risk
-    risk1 = former['middlelist']
-    risk2 = latest['middlelist']
+    risk1 = json1['data']['middlelist']
+    risk2 = json2['data']['middlelist']
     # Removing duplications
-    shift2 = dup(risk1, risk2)
-    shift2['level'] = "middle"
+    if len(risk1)==len(risk2)==0:
+        middle_flag = 0
+    else:
+        shift2 = dup(risk1, risk2)
+        shift2['level'] = "middle"
     
     # Merge
-    shift = shift1.merge(shift2, indicator=False, how='outer')
+    if high_flag==middle_flag==0:
+        shift = pd.DataFrame()
+    elif high_flag==0:
+        shift = shift2
+    elif middle_flag==0:
+        shift = shift1
+    else:
+        shift = shift1.merge(shift2, indicator=False, how='outer')
+
     shift['_merge'] = shift['_merge'].astype(str)    
     shift.loc[shift['_merge']=='left_only', '_merge'] = 'removed'
     shift.loc[shift['_merge']=='right_only', '_merge'] = 'new'
     shift['date'] = former['end_update_time'][0:10]
+    
     if len(shift)>0:
         shift.drop(['type', 'area_name'], axis=1, inplace=True)
         return shift
